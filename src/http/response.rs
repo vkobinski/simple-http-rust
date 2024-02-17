@@ -1,18 +1,16 @@
 use std::any::type_name;
 
-use serde_json::Result;
-
 trait ContentTrait {
     fn get_content_type(&self) -> String;
     fn content_length(&self) -> usize;
     fn to_string(&self) -> String;
 }
 
-struct Content<T: ToString> {
+struct Content<T: ToString + Clone> {
     content: T,
 }
 
-impl<T: ToString> ContentTrait for Content<T> {
+impl<T: ToString + Clone> ContentTrait for Content<T> {
     fn get_content_type(&self) -> String {
         println!("{}", type_name::<T>());
         match type_name::<T>() {
@@ -33,13 +31,13 @@ impl<T: ToString> ContentTrait for Content<T> {
 
 }
 
-impl <T: ToString> Content<T> {
+impl <T: ToString + Clone> Content<T> {
     fn new(c: T) -> Self {
         Self { content: c }
     }
 }
 
-impl<T: ToString> Into<String> for Content<T> {
+impl<T: ToString + Clone> Into<String> for Content<T> {
     fn into(self) -> String {
         self.content.to_string()
     }
@@ -58,22 +56,22 @@ impl StatusCode {
     pub const INTERNAL_SERVER_ERROR: StatusCode = StatusCode { code: 500, message: "Internal Server Error" };
 }
 
-pub struct Response<'a> {
+pub struct Response {
     code: StatusCode,
-    content: Box<dyn ContentTrait + 'a>,
+    content: Box<dyn ContentTrait>,
 }
 
-impl<'a> Response<'a> {
-    pub fn new<T: ToString + 'a >(status: StatusCode, content: T) -> Self {
+impl Response {
+    pub fn new<T: ToString + Clone >(status: StatusCode, content: T) -> Self {
 
         Self {
             code: status,
-            content: Box::new(Content::new(content)),
+            content: Box::new(Content::new(content).clone()),
         }
     }
 }
 
-impl Into<String> for Response<'_> {
+impl Into<String> for Response {
 
     fn into(self) -> String {
 
@@ -118,6 +116,11 @@ impl IntoResponse for Vec<String> {
         Response::new(StatusCode::OK, res)
     }
 
+}
+
+enum ReturnTypes {
+    String(std::string::String),
+    Json(serde_json::value::Value),
 }
 
 

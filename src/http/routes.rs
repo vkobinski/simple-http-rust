@@ -23,14 +23,18 @@ impl From<&str> for Method {
 }
 
 
-pub struct Route<T: IntoResponse> {
+pub struct Route<F>
+where F: Fn() -> Box<dyn IntoResponse>,
+{
     pub method: Method,
     pub path: String,
-    pub func: fn() -> T,
+    pub func: F,
 }
 
-impl<T: IntoResponse> Route<T> {
-    pub fn new(method: Method, path: String, func: fn() -> T)  -> Self {
+impl<F> Route<F>
+where F: Fn() -> Box<dyn IntoResponse>,
+{
+    pub fn new(method: Method, path: String, func: F)  -> Self {
         Self {
             method,
             path,
@@ -39,8 +43,10 @@ impl<T: IntoResponse> Route<T> {
     }
 }
 
-pub struct Routes<T: IntoResponse> {
-    pub routes : Vec<Route<T>>
+pub struct Routes<F>
+where F: Fn() -> Box<dyn IntoResponse>,
+{
+    pub routes : Vec<Route<F>>
 }
 
 #[derive(Debug)]
@@ -51,14 +57,16 @@ pub enum RouteError {
 
 }
 
-impl<T:IntoResponse> Routes<T> {
+impl<F> Routes<F>
+where F: Fn() -> Box<dyn IntoResponse>,
+{
     pub fn new() -> Self {
         Self {
             routes: vec!(),
         }
     }
 
-    pub fn add_route(&mut self, method: Method, path: String, func: fn() -> T) -> Result<(), RouteError> {
+    pub fn add_route(&mut self, method: Method, path: String, func: F) -> Result<(), RouteError> {
 
         let route = Route::new(method, path, func);
 
@@ -75,7 +83,7 @@ impl<T:IntoResponse> Routes<T> {
 
         if let Some(&ref route) = self.routes.iter().find(|r| r.path == path && r.method == method) {
             let res = (route.func)();
-            let str : String = res.into_response().into();
+            let str : String = (*res).into_response().into();
             stream.write_all(str.as_bytes()).unwrap();
             Ok(())
         } else {

@@ -12,19 +12,16 @@ fn get_api() -> impl IntoResponse {
 }
 
 
-fn post_api() -> impl IntoResponse {
+fn post_api() -> Response {
 
-    let response = vec!(String::from("teste"), String::from("teste2"));
-
-    response
-
+    vec!(String::from("teste"), String::from("teste2")).into_response()
 }
 
 fn main() {
     let listener = TcpListener::bind("0.0.0.0:8080").unwrap();
 
     let mut routes = Routes::new();
-    let _ = routes.add_route(Method::GET, "/api".to_string(), get_api );
+    let _ = routes.add_route(Method::GET, "/api".to_string(), post_api );
 
     for stream in listener.incoming() {
 
