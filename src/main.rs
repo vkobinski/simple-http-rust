@@ -11,21 +11,13 @@ fn get_api() -> impl IntoResponse {
 
 }
 
-
-fn post_api() -> Response {
-
-    vec!(String::from("teste"), String::from("teste2")).into_response()
-}
-
 fn main() {
     let listener = TcpListener::bind("0.0.0.0:8080").unwrap();
 
     let mut routes = Routes::new();
-    let _ = routes.add_route(Method::GET, "/api".to_string(), post_api );
+    let _ = routes.add_route(Method::GET, "/api".to_string(), get_api );
 
     for stream in listener.incoming() {
-
-        println!("ended");
 
         match stream {
             Ok(mut stream) => {
@@ -33,8 +25,6 @@ fn main() {
             }
             Err(e) => println!("Could not get cliente: {e:?}"),
         }
-
-        println!("ended");
     }
 
 }

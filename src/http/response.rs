@@ -6,7 +6,7 @@ trait ContentTrait {
     fn to_string(&self) -> String;
 }
 
-struct Content<T: ToString + Clone> {
+struct Content<T: ToString> {
     content: T,
 }
 
@@ -56,22 +56,24 @@ impl StatusCode {
     pub const INTERNAL_SERVER_ERROR: StatusCode = StatusCode { code: 500, message: "Internal Server Error" };
 }
 
-pub struct Response {
+pub struct Response<'a> {
     code: StatusCode,
-    content: Box<dyn ContentTrait>,
+    content: Box<dyn ContentTrait + 'a>,
 }
 
-impl Response {
-    pub fn new<T: ToString + Clone >(status: StatusCode, content: T) -> Self {
+impl<'a> Response<'a> {
+    pub fn new<T: ToString + Clone + 'a >(status: StatusCode, content: T) -> Self {
+
+        let cloned = content.clone();
 
         Self {
             code: status,
-            content: Box::new(Content::new(content).clone()),
+            content: Box::new(Content::new(cloned)),
         }
     }
 }
 
-impl Into<String> for Response {
+impl Into<String> for Response<'_> {
 
     fn into(self) -> String {
 
