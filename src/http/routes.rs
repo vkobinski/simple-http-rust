@@ -5,7 +5,7 @@ use crate::Response;
 
 use super::response::{IntoResponse, StatusCode};
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub enum Method {
     GET,
     POST,
@@ -24,29 +24,56 @@ impl From<&str> for Method {
 
 
 pub struct Route<T>
-where T: IntoResponse
+where T: Clone + IntoResponse
 {
     pub method: Method,
     pub path: String,
-    pub func: fn() -> T,
+    pub func: Box<dyn Fn() -> T>,
 }
 
-impl<T> Route<T>
-where T: IntoResponse
+impl<T>  Route<T>
+where T: Clone + IntoResponse
 {
-    pub fn new(method: Method, path: String, func: fn() -> T)  -> Self {
+    fn new(method: Method, path: String, func: impl Fn() -> T + 'static)  -> Self
+    {
         Self {
             method,
             path,
-            func
+            func: Box::new(func)
         }
     }
 }
 
-pub struct Routes<T>
-where T: IntoResponse
+impl<T> AnyRoute for Route<T>
+where T: Clone + IntoResponse
 {
-    pub routes : Vec<Route<T>>
+
+    fn get_path(&self) -> &String {
+        &self.path
+    }
+
+    fn get_method(&self) -> Method {
+        self.method
+    }
+
+    fn execute(&self) -> Response {
+        (self.func)().into_response().clone()
+    }
+
+}
+
+
+trait AnyRoute {
+
+    fn get_path(&self) -> &String;
+    fn get_method(&self) -> Method;
+    fn execute(&self) -> Response;
+}
+
+
+pub struct Routes
+{
+    pub routes : Vec<Box<dyn AnyRoute>>
 }
 
 #[derive(Debug)]
@@ -57,8 +84,7 @@ pub enum RouteError {
 
 }
 
-impl<T> Routes<T>
-where T: IntoResponse
+impl Routes
 {
     pub fn new() -> Self {
         Self {
@@ -66,14 +92,15 @@ where T: IntoResponse
         }
     }
 
-    pub fn add_route(&mut self, method: Method, path: String, func: fn() -> T) -> Result<(), RouteError> {
+    pub fn add_route<T: Clone + IntoResponse + 'static>(&mut self, method: Method, path: String, func: impl Fn() -> T + 'static) -> Result<(), RouteError>
+    {
 
         let route = Route::new(method, path, func);
 
-        if let Some(_) = self.routes.iter().find(|r| r.path == route.path && r.method == route.method) {
+        if let Some(_) = self.routes.iter().find(|r| *r.get_path() == route.path && r.get_method() == route.method) {
                 Err(RouteError::AlreadyInUse)
         } else {
-            self.routes.push(route);
+            self.routes.push(Box::new(route));
             Ok(())
         }
     }
@@ -81,9 +108,10 @@ where T: IntoResponse
     pub fn process_request(&self, stream: &mut TcpStream,path: String, method: &str) -> Result<(), RouteError> {
         let method: Method = Method::from(method);
 
-        if let Some(&ref route) = self.routes.iter().find(|r| r.path == path && r.method == method) {
-            let res = (route.func)();
-            let str : String = (res).into_response().into();
+        if let Some(route) = self.routes.iter().find(|r| *r.get_path() == path && r.get_method() == method) {
+
+            let res = route.execute();
+            let str : String = (res).into();
             stream.write_all(str.as_bytes()).unwrap();
             Ok(())
         } else {
@@ -116,14 +144,4 @@ where T: IntoResponse
 
     }
 
-}
-
-#[macro_export]
-macro_rules! add_route {
-    ($routes:expr, $method:expr, $path:expr, $func:expr) => {
-        {
-            let route = Route{method: $method, path: $path.to_string(), func: $func};
-            $routes.add_route(route)
-        }
-    };
 }

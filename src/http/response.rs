@@ -1,16 +1,21 @@
 use std::any::type_name;
 
-trait ContentTrait {
+trait ContentTrait : ContentClone {
     fn get_content_type(&self) -> String;
     fn content_length(&self) -> usize;
     fn to_string(&self) -> String;
 }
 
+trait ContentClone {
+    fn clone_box(&self) -> Box<dyn ContentTrait>;
+}
+
+#[derive(Copy, Clone)]
 struct Content<T: ToString> {
     content: T,
 }
 
-impl<T: ToString + Clone> ContentTrait for Content<T> {
+impl<T: ToString + Clone + 'static> ContentTrait for Content<T> {
     fn get_content_type(&self) -> String {
         println!("{}", type_name::<T>());
         match type_name::<T>() {
@@ -31,6 +36,19 @@ impl<T: ToString + Clone> ContentTrait for Content<T> {
 
 }
 
+impl<T: ToString + Clone + 'static> ContentClone for Content<T> {
+    fn clone_box(&self) -> Box<dyn ContentTrait> {
+        Box::new(self.clone())
+    }
+}
+
+impl Clone for Box<dyn ContentTrait> {
+    fn clone(&self) -> Box<dyn ContentTrait> {
+        self.clone_box()
+    }
+
+}
+
 impl <T: ToString + Clone> Content<T> {
     fn new(c: T) -> Self {
         Self { content: c }
@@ -44,7 +62,7 @@ impl<T: ToString + Clone> Into<String> for Content<T> {
 
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct StatusCode {
     code: usize,
     message: &'static str,
@@ -56,13 +74,14 @@ impl StatusCode {
     pub const INTERNAL_SERVER_ERROR: StatusCode = StatusCode { code: 500, message: "Internal Server Error" };
 }
 
-pub struct Response<'a> {
+#[derive(Clone)]
+pub struct Response {
     code: StatusCode,
-    content: Box<dyn ContentTrait + 'a>,
+    content: Box<dyn ContentTrait>,
 }
 
-impl<'a> Response<'a> {
-    pub fn new<T: ToString + Clone + 'a >(status: StatusCode, content: T) -> Self {
+impl Response {
+    pub fn new<T: ToString + Clone + 'static >(status: StatusCode, content: T) -> Self {
 
         let cloned = content.clone();
 
@@ -73,7 +92,7 @@ impl<'a> Response<'a> {
     }
 }
 
-impl Into<String> for Response<'_> {
+impl Into<String> for Response {
 
     fn into(self) -> String {
 
@@ -118,11 +137,6 @@ impl IntoResponse for Vec<String> {
         Response::new(StatusCode::OK, res)
     }
 
-}
-
-enum ReturnTypes {
-    String(std::string::String),
-    Json(serde_json::value::Value),
 }
 
 
