@@ -116,18 +116,18 @@ impl Into<String> for Response {
 }
 
 pub trait IntoResponse {
-    fn into_response(&self) -> Response;
+    fn into_response(self) -> Response;
 }
 
 impl  IntoResponse for String {
-    fn into_response(&self) -> Response {
+    fn into_response(self) -> Response {
         Response::new(StatusCode::OK, self)
     }
 }
 
 impl IntoResponse for Vec<String> {
 
-    fn into_response(&self) -> Response {
+    fn into_response(self) -> Response {
 
         let mut res = String::new();
 
@@ -142,7 +142,7 @@ impl IntoResponse for Vec<String> {
 
 impl IntoResponse for Vec<&str> {
 
-    fn into_response(&self) -> Response {
+    fn into_response(self) -> Response {
 
         let mut res = String::new();
 
@@ -161,7 +161,7 @@ impl IntoResponse for Vec<&str> {
 //}
 
 impl IntoResponse for serde_json::value::Value {
-    fn into_response(&self) -> Response {
+    fn into_response(self) -> Response {
         Response::new(StatusCode::NOT_FOUND, self.to_string())
     }
 }
